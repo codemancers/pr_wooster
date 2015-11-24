@@ -47,26 +47,31 @@ public class GithubCiNotifier extends Notifier {
 
     @Override
     public boolean prebuild(AbstractBuild build, BuildListener listener) {
-        return sendStatus(build, listener, GHCommitState.PENDING);
+        return sendStatus(build, listener, GHCommitState.PENDING, "Build started");
     }
 
     @Override
     public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
         GHCommitState status = GHCommitState.PENDING;
+        String desc = "";
 
         Result result = build.getResult();
         if (result.isBetterOrEqualTo(Result.SUCCESS)) {
             status = GHCommitState.SUCCESS;
+            desc = "Build successful";
         } else if (result.isBetterOrEqualTo(Result.UNSTABLE)) {
             status = GHCommitState.FAILURE;
+            desc = "Build failed";
         } else {
             status = GHCommitState.ERROR;
+            desc = "Build error'ed";
         }
 
-        return sendStatus(build, listener, status);
+        return sendStatus(build, listener, status, desc);
     }
 
-    private boolean sendStatus(AbstractBuild build, BuildListener listener, GHCommitState status) {
+    private boolean sendStatus(AbstractBuild build, BuildListener listener,
+                               GHCommitState status, String desc) {
         GitSCM scm = (GitSCM)build.getProject().getScm();
         String url = scm.getUserRemoteConfigs().get(0).getUrl().replace(".git", "");
 
@@ -110,7 +115,7 @@ public class GithubCiNotifier extends Notifier {
             f4.set(repository, repo);
 
             listener.getLogger().println("sending commit status: ");
-            repository.createCommitStatus(sha1, status, buildUrl, null);
+            repository.createCommitStatus(sha1, status, buildUrl, desc, "Jenkins");
         } catch (IOException ex) {
             listener.getLogger().println("io exception: " + ex.getMessage());
             return false;
